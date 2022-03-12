@@ -51,7 +51,7 @@ void button_2_callback(void) {
 }
 
 void button_3_callback(void) {
-	pio_get(BUT_3_PIO, PIO_INPUT, BUT_3_PIO_IDX_MASK) ? (but_3_flag = 0) : (but_3_flag = 1);
+	pio_get(BUT_3_PIO, PIO_INPUT, BUT_3_PIO_IDX_MASK) ? (but_3_flag = 1) : (but_3_flag = 0);
 }
 
 // Funções
@@ -178,6 +178,13 @@ int main (void) {
 			but_2_flag = 0;
 			pisca_led(30, delay);
 		} 
+		
+		if (but_3_flag) {
+			inc_delay();
+			refresh_display(delay);
+			but_3_flag = 0;
+		}
+		
 				
 		// Entra em sleep mode
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
