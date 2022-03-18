@@ -8,6 +8,12 @@
 /* DEFINES                                                              */
 /************************************************************************/
 
+// SAME 70
+#define LED_PIO PIOC
+#define LED_ID ID_PIOC
+#define LED_IDX 8
+#define LED_IDX_MASK (1 << LED_IDX)
+
 // OLED1 LED 1
 #define LED_1_PIO  PIOA
 #define LED_1_ID  ID_PIOA
@@ -91,6 +97,17 @@ void TC1_Handler(void) {
 	pin_toggle(LED_1_PIO, LED_1_IDX_MASK);  
 }
 
+void TC4_Handler(void) {
+	/**
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+	* Isso é realizado pela leitura do status do periférico
+	**/
+	volatile uint32_t status = tc_get_status(TC1, 1);
+
+	/** Muda o estado do LED (pisca) **/
+	pin_toggle(LED_PIO, LED_IDX_MASK);  
+}
+
 void RTT_Handler(void) {
 	uint32_t ul_status;
 
@@ -138,6 +155,11 @@ void but_1_callback(void) {
 /************************************************************************/
 /* Funções                                                              */
 /************************************************************************/
+
+void LED_init(int estado) {
+	pmc_enable_periph_clk(LED_ID);
+	pio_set_output(LED_PIO, LED_IDX_MASK, estado, 0, 0);
+};
 
 void LED_1_init(int estado) {
 	pmc_enable_periph_clk(LED_1_ID);
@@ -257,6 +279,7 @@ void init (void) {
 	// Init OLED
 	gfx_mono_ssd1306_init();
 	
+	LED_init(1);
 	LED_1_init(1);
 	LED_2_init(1);
 	LED_3_init(1);
@@ -291,6 +314,11 @@ void init (void) {
 	TC_init(TC0, ID_TC1, 1, 4);
 	tc_start(TC0, 1);
 	
+	/* Configure timer TC1, canal 1 */
+	/* e inicializa a contagem */
+	TC_init(TC1, ID_TC4, 1, 5);
+	tc_start(TC1, 1);
+	
 	/* Configure RTT */
 	RTT_init(4, 16, RTT_MR_ALMIEN);
 	
@@ -313,7 +341,7 @@ int main (void) {
 		if (flag_but_1) {
 			/* configura alarme do RTC para daqui 20 segundos */
 			rtc_set_date_alarm(RTC, 1, current_month, 1, current_day);
-			rtc_set_time_alarm(RTC, 1, current_hour, 1, current_min, 1, current_sec + 5);
+			rtc_set_time_alarm(RTC, 1, current_hour, 1, current_min, 1, current_sec + 20);
 		}
 		
 		if(flag_rtc_alarm) {
