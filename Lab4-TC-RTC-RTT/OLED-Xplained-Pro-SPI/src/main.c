@@ -65,6 +65,7 @@ typedef struct  {
 /************************************************************************/
 
 volatile char flag_rtc_alarm = 0;
+volatile char flag_rtc_sec = 1;
 volatile char flag_but_1 = 0;
 
 uint32_t current_hour, current_min, current_sec;
@@ -132,6 +133,7 @@ void RTC_Handler(void) {
 	/* seccond tick */
 	if ((ul_status & RTC_SR_SEC) == RTC_SR_SEC) {
 		// o código para irq de segundo vem aqui
+		flag_rtc_sec = 1;
 	}
 	
 	/* Time or date alarm */
@@ -265,6 +267,12 @@ void RTC_init(Rtc *rtc, uint32_t id_rtc, calendar t, uint32_t irq_type) {
 	rtc_enable_interrupt(rtc,  irq_type);
 }
 
+void draw (uint32_t current_hour, uint32_t current_min, uint32_t current_sec){
+	char tempo[20];
+	sprintf(tempo, "%02d:%02d:%02d", current_hour, current_min, current_sec);
+	gfx_mono_draw_string(tempo, 5,16, &sysfont);
+}
+
 void init (void) {
 	
 	// Inicializa clock
@@ -337,6 +345,10 @@ int main (void) {
 		
 		rtc_get_time(RTC, &current_hour, &current_min, &current_sec);
 		rtc_get_date(RTC, &current_year, &current_month, &current_day, &current_week);
+		
+		if (flag_rtc_sec) {
+			draw(current_hour, current_min, current_sec);
+		}
 		
 		if (flag_but_1) {
 			/* configura alarme do RTC para daqui 20 segundos */
