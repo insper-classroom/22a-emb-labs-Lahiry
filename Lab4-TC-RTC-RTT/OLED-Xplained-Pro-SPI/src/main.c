@@ -67,6 +67,8 @@ typedef struct  {
 volatile char flag_rtc_alarm = 0;
 volatile char flag_rtc_sec = 1;
 volatile char flag_but_1 = 0;
+volatile char flag_is_blinking = 0;
+volatile char flag_blinking_stop = 0;
 
 uint32_t current_hour, current_min, current_sec;
 uint32_t current_year, current_month, current_day, current_week;
@@ -109,6 +111,17 @@ void TC4_Handler(void) {
 	pin_toggle(LED_PIO, LED_IDX_MASK);  
 }
 
+void TC7_Handler(void) {
+	/**
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+	* Isso é realizado pela leitura do status do periférico
+	**/
+	volatile uint32_t status = tc_get_status(TC2, 1);
+
+	/** Muda o estado do LED (pisca) **/
+	pin_toggle(LED_3_PIO, LED_3_IDX_MASK);  
+}
+
 void RTT_Handler(void) {
 	uint32_t ul_status;
 
@@ -140,6 +153,12 @@ void RTC_Handler(void) {
 	if ((ul_status & RTC_SR_ALARM) == RTC_SR_ALARM) {
 		// o código para irq de alame vem aqui
 		flag_rtc_alarm = 1;
+		
+		if (flag_is_blinking) {
+			flag_rtc_alarm = 0;
+			flag_blinking_stop = 1;
+			flag_is_blinking = 0;
+		}
 	}
 
 	rtc_clear_status(RTC, RTC_SCCR_SECCLR);
@@ -293,16 +312,10 @@ void init (void) {
 	LED_3_init(1);
 	
 	pmc_enable_periph_clk(BUT_1_ID);
-	//pmc_enable_periph_clk(BUT_2_PIO_ID);
-	//pmc_enable_periph_clk(BUT_3_PIO_ID);
 	
 	pio_configure(BUT_1_PIO, PIO_INPUT, BUT_1_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);	
-	//pio_configure(BUT_2_PIO, PIO_INPUT, BUT_2_PIO_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
-	//pio_configure(BUT_3_PIO, PIO_INPUT, BUT_3_PIO_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
 	
 	pio_set_debounce_filter(BUT_1_PIO, BUT_1_IDX_MASK, 60);
-	//pio_set_debounce_filter(BUT_2_PIO, BUT_2_PIO_IDX_MASK, 60);
-	//pio_set_debounce_filter(BUT_3_PIO, BUT_3_PIO_IDX_MASK, 60);
 	
 	// Configura interrupção no pino referente aos OLED1 BUTTONS e associa
 	// função de callback caso uma interrupção seja gerada
@@ -332,7 +345,7 @@ void init (void) {
 	
 	/* Configura RTC */
 	calendar rtc_initial = {2018, 3, 19, 12, 15, 45 ,1};
-	RTC_init(RTC, ID_RTC, rtc_initial, RTC_IER_ALREN);
+	RTC_init(RTC, ID_RTC, rtc_initial, RTC_IER_ALREN | RTC_IER_SECEN);
 
 }
 
@@ -356,10 +369,29 @@ int main (void) {
 			rtc_set_time_alarm(RTC, 1, current_hour, 1, current_min, 1, current_sec + 20);
 		}
 		
-		if(flag_rtc_alarm) {
-			pisca_led(5, 200);
+		if(flag_rtc_alarm && !flag_blinking_stop) {
+			//pisca_led(5, 200);
+			
+			/* Configure timer TC2, canal 1 */
+			/* e inicializa a contagem */
+			TC_init(TC2, ID_TC7, 1, 5);
+			tc_start(TC2, 1);
+			
+			flag_is_blinking = 1;
+			
+			/* configura alarme do RTC para daqui 20 segundos */
+			rtc_set_date_alarm(RTC, 1, current_month, 1, current_day);
+			rtc_set_time_alarm(RTC, 1, current_hour, 1, current_min, 1, current_sec + 2);
+			
 			flag_rtc_alarm = 0;
 		}
+		
+		if (flag_blinking_stop) {
+			tc_stop(TC2, 1);
+			pio_set(LED_3_PIO, LED_3_IDX_MASK);
+			flag_blinking_stop = 0;
+		}
+		
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 	}
 
