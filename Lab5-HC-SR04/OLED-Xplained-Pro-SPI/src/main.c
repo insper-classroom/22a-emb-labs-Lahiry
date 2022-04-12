@@ -88,6 +88,11 @@ int main (void) {
 			sprintf(dist, "%f", distance);
 			gfx_mono_draw_string(dist, 0, 16, &sysfont);
 			flag_echo = 0;
+			
+			if (distance < 2 || distance > 400) { // erro caso a distancia seja menor que a mínima ou maior que a máxima
+				erase_oled();
+				gfx_mono_draw_string("Error :(", 0, 16, &sysfont);
+			}
 		}
 				
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
